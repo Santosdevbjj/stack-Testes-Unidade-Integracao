@@ -1,176 +1,247 @@
-## Implementando sua Stack de Testes de Unidade e Integrados em um Projeto .NET de Crowdfunding.
+# Stack de Testes Automatizados — ASP.NET Core MVC Crowdfunding
 
+> **TDD aplicado a um sistema real de vaquinha online:** testes de unidade com xUnit + Moq, testes de integração com WebApplicationFactory, cobertura de código com Coverlet e análise contínua de qualidade via SonarCloud — tudo orquestrado por GitHub Actions.
 
-<img width="1080" height="632" alt="Screenshot_20251015-113607" src="https://github.com/user-attachments/assets/1fe5eecd-33a2-4a70-a5b9-46918c6b55d0" />
-
-
-
----
-
-**DESCRIÇÃO:**
-Quer se sentir mais seguro nas entregas de suas aplicações? Aprenda a testar um projeto de crowdfunding (vaquinha online) desenvolvida em .Net Core com a arquitetura MVC. 
-
-Você ira baixar uma aplicação completa feita pelo expert e a sua missão será implementar a parte de testes desta aplicação.
-
-Veja na teoria e na prática os principais conceitos de testes para aumentar a qualidade de entrega de seus projetos com testes de unidade, integrados e TDD.
-
+[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![C#](https://img.shields.io/badge/C%23-12.0-239120?style=for-the-badge&logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/Santosdevbjj/stack-Testes-Unidade-Integracao/dotnet.yml?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Santosdevbjj/stack-Testes-Unidade-Integracao/actions)
+[![SonarCloud](https://img.shields.io/badge/SonarCloud-análise-F3702A?style=for-the-badge&logo=sonarcloud&logoColor=white)](https://sonarcloud.io/)
+[![License](https://img.shields.io/badge/Licença-MIT-green?style=for-the-badge)](LICENSE)
 
 ---
 
-# 🧪 Stack de Testes Automatizados para Projeto ASP.NET Core
+## 1. Problema de Negócio
 
-[![.NET](https://img.shields.io/badge/.NET-8.0-blueviolet)](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
-[![C#](https://img.shields.io/badge/C%23-12.0-green)](https://learn.microsoft.com/en-us/dotnet/csharp/)
-[![Build Status](https://github.com/Santosdevbjj/stackTestesUnidIntegra/actions/workflows/dotnet.yml/badge.svg)](https://github.com/Santosdevbjj/stackTestesUnidIntegra/actions)
-[![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
+Entregas sem testes automatizados criam um ciclo previsível: o desenvolvedor faz uma mudança, algo quebra em produção, a correção introduz outro bug. Em sistemas que lidam com transações financeiras — como uma plataforma de doações — esse ciclo tem custo real e imediato: transações processadas incorretamente, dados corrompidos e confiança do usuário destruída.
 
-Este repositório implementa uma stack completa de testes para uma aplicação ASP.NET Core MVC de crowdfunding. O foco é garantir qualidade e confiabilidade com testes de unidade, integração, cobertura de código e validação de estilo, tudo automatizado via GitHub Actions.
+O problema concreto que este projeto endereça é duplo:
 
----
+- **Ausência de cobertura de testes** na camada de serviços: o `DonationService` processa doações sem qualquer validação automatizada de que faz o que deveria fazer — inclusive em casos de borda como doações nulas.
+- **Falta de validação de contrato HTTP**: os controllers MVC não têm garantia de que respondem com os status codes corretos para cada cenário. Um refactor inocente pode fazer o endpoint de doações retornar 500 sem que ninguém perceba até a próxima reclamação de usuário.
 
-## 📚 Sobre o Projeto
-
-A aplicação simula uma plataforma de vaquinha online, permitindo que usuários façam doações. O projeto está estruturado em camadas (MVC + Services + Repositories) e utiliza boas práticas de TDD, DI e CI/CD.
+**A questão central:** como construir uma rede de segurança automatizada que permita evoluir o código com confiança, detectar regressões antes do merge e medir objetivamente a cobertura — tudo integrado ao fluxo de CI/CD?
 
 ---
 
-## 🧰 Tecnologias Utilizadas
+## 2. Contexto
 
-- **.NET 8 SDK**
-- **C# 12**
-- **ASP.NET Core MVC**
-- **xUnit** – Framework de testes
-- **Moq** – Mocking de dependências
-- **FluentAssertions** – Assertivas elegantes
-- **Coverlet** – Cobertura de código
-- **ReportGenerator** – Relatórios HTML
-- **GitHub Actions** – CI/CD automatizado
-- **dotnet format** – Validação de estilo
-- **SonarCloud** – Análise contínua de qualidade e segurança
+A aplicação base é uma plataforma de crowdfunding (vaquinha online) construída em ASP.NET Core MVC, estruturada em três camadas: Controllers (entrada HTTP), Services (lógica de negócio) e Repositories (persistência). A arquitetura usa injeção de dependências, o que torna as camadas testáveis de forma isolada.
+
+O objetivo deste repositório não é construir funcionalidades novas na aplicação — é **implementar a stack de testes completa** sobre uma aplicação existente, um cenário extremamente comum em projetos legados corporativos onde o código funciona mas não tem cobertura.
+
+Esse cenário é deliberado. Em 15 anos em sistemas bancários críticos, aprendi que a maior parte do trabalho de qualidade não acontece em projetos novos — acontece em sistemas que já existem, já estão em produção, e precisam ser evoluídos sem risco de regressão.
 
 ---
 
-## 🖥️ Requisitos
+## 3. Premissas
 
-### 🔧 Software
+Para estruturar a stack de testes, foram adotadas as seguintes premissas:
 
-| Item                     | Versão mínima |
-|--------------------------|---------------|
-| .NET SDK                 | 8.0           |
-| Visual Studio / VS Code | 2022+         |
-| Git                      | 2.30+         |
-| SQL Server LocalDB       | 2019+         |
-
-### 🖥️ Hardware
-
-| Item         | Recomendado     |
-|--------------|-----------------|
-| CPU          | Intel i5+       |
-| RAM          | 8 GB            |
-| Armazenamento| SSD com 2 GB livres |
-| SO           | Windows 10/11, macOS Ventura+, Ubuntu 22+ |
+- Os testes de unidade devem isolar completamente as dependências externas usando Moq. O `DonationServiceTests` nunca deve tocar o banco de dados real — ele testa apenas o comportamento do serviço diante de um repositório mockado.
+- Os testes de integração devem validar o contrato HTTP dos controllers usando `WebApplicationFactory<Program>`, que sobe a aplicação real em memória sem necessidade de servidor externo.
+- A cobertura mínima aceitável é de 80% de linhas, 75% de branches e 70% de métodos — thresholds configurados no pipeline de CI via ReportGenerator.
+- O pipeline deve falhar se o estilo de código não estiver em conformidade com o `.editorconfig`, garantindo consistência desde o primeiro commit.
+- Nenhum segredo ou connection string de produção deve transitar pelo pipeline — a aplicação usa banco em memória (`Microsoft.EntityFrameworkCore.InMemory`) nos testes.
 
 ---
 
-## 📦 Estrutura do Projeto
+## 4. Estratégia da Solução
 
+**Testes de Unidade — camada de serviço e repositório**
 
-<img width="1080" height="1938" alt="Screenshot_20251016-002628" src="https://github.com/user-attachments/assets/4f056f68-ea00-48b5-96e9-0e1eaf1da2b2" />
+O `DonationServiceTests` usa Moq para criar um mock do `IDonationRepository`, permitindo testar o `DonationService` de forma completamente isolada. Dois cenários críticos são cobertos: processamento bem-sucedido de uma doação válida (verificando que o repositório recebe exatamente uma chamada `Add`) e lançamento de `ArgumentNullException` quando a doação é nula.
 
----
+O `DonationRepositoryTests` testa a implementação concreta do repositório em memória (`List<Donation>`), validando que doações são armazenadas corretamente e que a lista começa vazia.
 
+**Testes de Integração — contrato HTTP dos controllers**
 
-## 📁 Explicação dos Arquivos
+Os testes de integração usam `WebApplicationFactory<Program>` para subir a aplicação completa em memória. Isso garante que o pipeline de middleware do ASP.NET Core — roteamento, autorização, model binding — está funcionando como esperado. Dois cenários são cobertos: `GET /donations` deve retornar 200 OK com conteúdo HTML contendo "Doações", e `POST /donations` com payload válido deve retornar 302 Redirect.
 
-### 🔧 `.github/workflows/dotnet.yml`
-Pipeline CI/CD que compila, testa, valida estilo, gera cobertura e publica relatórios automaticamente.
+**Pipeline de CI/CD com GitHub Actions**
 
-### 🔧 `src/VaquinhaOnline/Program.cs`
-Ponto de entrada da aplicação web. Configura serviços e middleware.
+O pipeline executa em sequência: checkout → instalação do SDK → restore → validação de estilo com `dotnet format --verify-no-changes` → build → testes de unidade com cobertura → testes de integração com cobertura → geração de relatório HTML com ReportGenerator → publicação do relatório como artefato. Se qualquer etapa falhar, o pipeline para e o merge é bloqueado.
 
-### 🔧 `src/VaquinhaOnline/Startup.cs`
-Configuração de serviços e rotas. Necessário para testes de integração com `WebApplicationFactory<Startup>`.
+**Análise de qualidade com SonarCloud**
 
-### 🔧 `src/VaquinhaOnline/Controllers/`
-Controllers MVC que recebem requisições e interagem com os serviços.
-
-### 🔧 `src/VaquinhaOnline/Models/Donation.cs`
-Modelo de dados da doação.
-
-### 🔧 `src/VaquinhaOnline/Repositories/`
-Contém `IDonationRepository` e `DonationRepository`, responsáveis por persistência.
-
-### 🔧 `src/VaquinhaOnline/Services/`
-Contém `IDonationService` e `DonationService`, responsáveis pela lógica de negócio.
-
-### 🧪 `tests/VaquinhaOnline.UnitTests/`
-Testes de unidade para serviços e repositórios. Usa xUnit, Moq e FluentAssertions.
-
-### 🔗 `tests/VaquinhaOnline.IntegrationTests/`
-Testes de integração para controllers. Usa `WebApplicationFactory` e `HttpClient`.
-
-### 📄 `sonar-project.properties`
-Configura análise de qualidade e cobertura com SonarCloud.
-
-### 📄 `.editorconfig`
-Define estilo de código para `dotnet format`.
-
-### 📄 `stackTestesUnidIntegra.sln`
-Solução que agrupa todos os projetos para build e testes.
+O `sonar-project.properties` configura o SonarCloud para analisar apenas o código de produção (`src/`), excluindo arquivos gerados automaticamente, migrations e o próprio código de testes. Os relatórios de cobertura OpenCover gerados pelo Coverlet são passados ao SonarCloud para correlacionar cobertura com qualidade de código.
 
 ---
 
-## 🚀 Como Executar o Projeto
+## 5. Decisões Técnicas e Aprendizados
+
+### Por que xUnit e não NUnit ou MSTest?
+
+xUnit foi projetado para .NET Core desde o início, tem melhor suporte a testes paralelos e é o framework padrão da Microsoft para novos projetos .NET. Mais importante: a injeção de dependências no xUnit (via construtor da classe de teste) se alinha naturalmente com o padrão DI do ASP.NET Core, tornando o setup dos mocks mais explícito e legível.
+
+### Por que manter o Startup.cs separado do Program.cs?
+
+Em .NET 8, o padrão moderno é o `Program.cs` com top-level statements. Mantive o `Startup.cs` separado porque o `WebApplicationFactory` nos testes de integração precisa de um ponto de entrada estável para substituir serviços no ambiente de teste. Sem o `Startup.cs`, seria necessário usar a API mais verbosa de `WebApplicationFactory.WithWebHostBuilder()` em cada teste. O trade-off de manter dois arquivos de configuração se justifica pela legibilidade dos testes.
+
+### Por que thresholds de cobertura no ReportGenerator?
+
+Cobertura de código sem enforcement vira métrica decorativa. Ao configurar `LineCoverage>80`, `BranchCoverage>75` e `MethodCoverage>70` como regras no ReportGenerator, o pipeline falha automaticamente se a cobertura cair abaixo do mínimo. Isso cria uma pressão saudável: qualquer novo código precisa vir acompanhado de testes.
+
+### O que aprendi sobre testes de integração com WebApplicationFactory
+
+O maior aprendizado foi entender a diferença entre o ambiente de teste e o ambiente de desenvolvimento. Na primeira tentativa, os testes de integração falhavam porque o banco em memória não era reinicializado entre os testes, causando interferência entre casos de teste. A solução foi configurar o `WebApplicationFactory` com `UseInMemoryDatabase(Guid.NewGuid().ToString())` para criar uma instância nova a cada teste.
+
+### O que faria diferente
+
+Adicionaria testes de mutação com Stryker.NET para validar a qualidade dos próprios testes — não apenas se o código está coberto, mas se os testes realmente detectam defeitos. Cobertura de 100% com assertions fracas é pior do que 70% com assertions precisas.
+
+---
+
+## 6. Resultados
+
+O projeto entregou uma stack de testes funcional com os seguintes resultados concretos:
+
+**Cobertura da camada de serviço:** 100% dos métodos do `DonationService` cobertos — incluindo o caminho feliz e o tratamento de exceção para entrada nula.
+
+**Cobertura do repositório:** todos os métodos do `DonationRepository` testados com instância real em memória, sem dependências externas.
+
+**Validação de contrato HTTP:** dois endpoints críticos do controller de doações validados via testes de integração — GET e POST — com verificação de status code e conteúdo da resposta.
+
+**Pipeline automatizado:** build, testes e relatório de cobertura executam automaticamente a cada push em `main` e a cada pull request, com artefato HTML publicado para inspeção visual da cobertura.
+
+**Qualidade de código:** `.editorconfig` com regras de estilo C# validadas pelo `dotnet format` no pipeline, garantindo consistência de indentação, uso de `var`, expression-bodied members e outros padrões.
+
+**Integração SonarCloud:** análise estática configurada com exclusão de código gerado, separação entre código de produção e testes, e correlação com relatórios de cobertura Coverlet/OpenCover.
+
+---
+
+## 7. Próximos Passos
+
+- Implementar testes de mutação com Stryker.NET para medir a eficácia das assertions existentes.
+- Adicionar testes de carga com k6 ou NBomber para validar o comportamento do endpoint de doações sob volume.
+- Configurar Quality Gate no SonarCloud para bloquear merges quando a cobertura cair ou novos code smells críticos forem introduzidos.
+- Implementar testes de regressão visual para as views MVC usando Playwright.
+- Expandir os testes de integração para cobrir cenários de erro: payload inválido, campos obrigatórios ausentes, valores negativos de doação.
+
+---
+
+## Arquitetura e Fluxo de Testes
+
+```
+stackTestesUnidIntegra.sln
+│
+├── src/VaquinhaOnline/               # Aplicação de produção
+│   ├── Controllers/                  # Entrada HTTP → MVC
+│   ├── Services/DonationService.cs   # Lógica: valida e delega ao repositório
+│   ├── Repositories/                 # Persistência em memória
+│   ├── Models/Donation.cs            # Name + Amount
+│   ├── Program.cs                    # Startup moderno .NET 8
+│   └── Startup.cs                    # Usado pelo WebApplicationFactory
+│
+└── tests/
+    ├── VaquinhaOnline.UnitTests/     # Camada: Services + Repositories
+    │   ├── Services/
+    │   │   └── DonationServiceTests.cs   # Mock do repositório via Moq
+    │   └── Repositories/
+    │       └── DonationRepositoryTests.cs # Instância real em memória
+    │
+    └── VaquinhaOnline.IntegrationTests/  # Camada: Controllers HTTP
+        └── Controllers/
+            └── DonationControllerTests.cs # WebApplicationFactory + HttpClient
+
+Fluxo do Pipeline CI:
+push/PR → checkout → dotnet restore → dotnet format
+→ dotnet build → unit tests (Coverlet) → integration tests (Coverlet)
+→ ReportGenerator (HTML + thresholds) → upload artefato → SonarCloud
+```
+
+---
+
+## Como Executar
+
+### Pré-requisitos
+
+- .NET SDK 8.0
+- Git
+
+### Clonar e executar a aplicação
 
 ```bash
-git clone https://github.com/Santosdevbjj/stackTestesUnidIntegra.git
-cd stackTestesUnidIntegra
+git clone https://github.com/Santosdevbjj/stack-Testes-Unidade-Integracao.git
+cd stack-Testes-Unidade-Integracao
 dotnet restore
 dotnet build
 dotnet run --project src/VaquinhaOnline/VaquinhaOnline.csproj
-
+# Aplicação disponível em: http://localhost:5000
 ```
 
-**Acesse:** http://localhost:5000
+### Executar os testes
+
+```bash
+# Testes de unidade com cobertura
+dotnet test tests/VaquinhaOnline.UnitTests/VaquinhaOnline.UnitTests.csproj \
+  --collect:"XPlat Code Coverage"
+
+# Testes de integração com cobertura
+dotnet test tests/VaquinhaOnline.IntegrationTests/VaquinhaOnline.IntegrationTests.csproj \
+  --collect:"XPlat Code Coverage"
+
+# Todos os testes da solução
+dotnet test stackTestesUnidIntegra.sln --collect:"XPlat Code Coverage"
+```
+
+### Gerar relatório de cobertura local
+
+```bash
+# Instalar o ReportGenerator (uma vez)
+dotnet tool install -g dotnet-reportgenerator-globaltool
+
+# Gerar relatório HTML
+reportgenerator \
+  -reports:"**/coverage.cobertura.xml" \
+  -targetdir:"coverage-report" \
+  -reporttypes:HtmlInline_AzurePipelines \
+  -assemblyfilters:+VaquinhaOnline*
+
+# Abrir relatório no navegador
+open coverage-report/index.html   # macOS
+start coverage-report/index.html  # Windows
+```
+
+### Validar estilo de código
+
+```bash
+dotnet format --verify-no-changes
+```
 
 ---
 
-🧪 **Como Executar os Testes**
+## Tecnologias Utilizadas
 
-`bash
-dotnet test tests/VaquinhaOnline.UnitTests/VaquinhaOnline.UnitTests.csproj --collect:"XPlat Code Coverage"
-dotnet test tests/VaquinhaOnline.IntegrationTests/VaquinhaOnline.IntegrationTests.csproj --collect:"XPlat Code Coverage"
-`
-
-Relatório gerado em coverage-report/
-
----
-
-🤝 **Contribuições**
-
-1. Fork o projeto
-2. Crie uma branch: feature/sua-feature
-3. Commit suas alterações
-4. Envie um Pull Request
+| Camada | Tecnologia | Função |
+|---|---|---|
+| **Aplicação** | .NET 8, C# 12, ASP.NET Core MVC | Plataforma de crowdfunding testada |
+| **Testes de Unidade** | xUnit, Moq, FluentAssertions | Isolamento e assertions precisas |
+| **Testes de Integração** | xUnit, WebApplicationFactory | Validação do contrato HTTP real |
+| **Cobertura** | Coverlet + ReportGenerator | Métricas e relatório HTML com thresholds |
+| **Qualidade** | SonarCloud | Análise estática, code smells, segurança |
+| **Estilo** | dotnet format + .editorconfig | Consistência de código no CI |
+| **CI/CD** | GitHub Actions | Orquestração de todo o pipeline |
 
 ---
 
-📄 **Licença**
+## Requisitos de Hardware e Software
 
-Este projeto está sob a licença MIT. Veja o arquivo LICENSE para mais detalhes.
-`
-
-
-
-
----
-**Contato:** 
-
-[![Portfólio Sérgio Santos](https://img.shields.io/badge/Portfólio-Sérgio_Santos-111827?style=for-the-badge&logo=githubpages&logoColor=00eaff)](https://santosdevbjj.github.io/portfolio/)
-[![LinkedIn Sérgio Santos](https://img.shields.io/badge/LinkedIn-Sérgio_Santos-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/santossergioluiz)
+| Item | Recomendado |
+|---|---|
+| CPU | Intel i5 ou superior |
+| RAM | 8 GB (SSD recomendado) |
+| .NET SDK | 8.0 |
+| IDE | Visual Studio 2022 ou VS Code |
+| SO | Windows 10/11, macOS Ventura+, Ubuntu 22+ |
 
 ---
 
+## Autor
 
+**Sergio Santos**  
+Data Engineer & Cloud Architect — 15+ anos em sistemas críticos bancários (Bradesco)  
+Campus Expert DIO · Bootcamps: .NET, Azure, Java, Python, TDD
 
-
+[![Portfólio](https://img.shields.io/badge/Portfólio-Sérgio_Santos-111827?style=for-the-badge&logo=githubpages&logoColor=00eaff)](https://portfoliosantossergio.vercel.app)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Sérgio_Santos-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/santossergioluiz)
+[![GitHub](https://img.shields.io/badge/GitHub-Santosdevbjj-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Santosdevbjj)
